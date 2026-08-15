@@ -1,3 +1,42 @@
+import ast
+import subprocess
+import sys
+
+# 1. Automatic Module Installer Function
+def auto_install_requirements(script_path):
+    try:
+        with open(script_path, "r", encoding="utf-8") as f:
+            tree = ast.parse(f.read(), filename=script_path)
+
+        modules_to_install = set()
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for n in node.names:
+                    mod_name = n.name.split(".")[0]
+                    modules_to_install.add(mod_name)
+            elif isinstance(node, ast.ImportFrom):
+                if node.module:
+                    mod_name = node.module.split(".")[0]
+                    modules_to_install.add(mod_name)
+
+        stdlib = {
+            "os", "sys", "math", "json", "re", "ast", "subprocess", "time", 
+            "datetime", "random", "threading", "io", "socket", "urllib", 
+            "http", "collections", "itertools", "functools", "pathlib", 
+            "shutil", "logging", "asyncio"
+        }
+
+        for module in modules_to_install:
+            if module not in stdlib:
+                try:
+                    __import__(module)
+                except ImportError:
+                    print(f"Auto-installing missing module: {module}")
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", module])
+    except Exception as e:
+        print(f"Auto-install error: {e}")
+
 import asyncio
 import json
 import logging
@@ -268,6 +307,11 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await msg.edit_text("❌ **Error:** No Python (`.py`) file found in ZIP archive.", parse_mode="Markdown")
             return
         target_path = py_files[0]
+
+    await msg.edit_text("🔍 **Checking and installing missing requirements...**", parse_mode="Markdown")
+    
+    # Auto-install modules before execution
+    auto_install_requirements(target_path)
 
     await msg.delete()
     runner = LiveRunner(chat_id, target_path, workspace)
