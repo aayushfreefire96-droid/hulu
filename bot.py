@@ -28,8 +28,8 @@ from telegram.ext import (
     filters,
 )
 
-# Force pre-install common modules globally
-for pkg in ["requests", "fake-useragent", "beautifulsoup4", "opencv-python", "Pillow"]:
+# Force pre-install common modules globally including user_agent
+for pkg in ["requests", "user_agent", "fake-useragent", "beautifulsoup4", "opencv-python", "Pillow"]:
     try:
         __import__(pkg.split("-")[0])
     except ImportError:
@@ -41,7 +41,8 @@ ADMIN_ID = 8783170404
 
 # Smart Package Name Mapper (Imports vs Pip Names)
 MODULE_MAPPER = {
-    "user_agent": "fake-useragent",
+    "user_agent": "user_agent",
+    "fake_useragent": "fake-useragent",
     "bs4": "beautifulsoup4",
     "cv2": "opencv-python",
     "PIL": "Pillow",
@@ -171,7 +172,7 @@ class LiveRunner:
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             subprocess.check_call(
-                [sys.executable, "-m", "pip", "install", "requests", "fake-useragent", "beautifulsoup4", "opencv-python", "Pillow"],
+                [sys.executable, "-m", "pip", "install", "requests", "user_agent", "fake-useragent", "beautifulsoup4", "opencv-python", "Pillow"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
