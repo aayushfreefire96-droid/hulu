@@ -99,10 +99,8 @@ class LiveRunner:
         env["PYTHONIOENCODING"] = "utf-8"
         env["PYTHONUTF8"] = "1"
 
-        cmd = f'"{sys.executable}" -u "{self.script_path}"'
-        
-        self.proc = await asyncio.create_subprocess_shell(
-            cmd,
+        self.proc = await asyncio.create_subprocess_exec(
+            sys.executable, "-u", str(self.script_path),
             cwd=str(self.workspace),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
