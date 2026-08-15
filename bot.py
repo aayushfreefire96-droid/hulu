@@ -8,6 +8,7 @@ import sys
 import time
 import zipfile
 import subprocess
+import importlib.util
 from pathlib import Path
 
 import psutil
@@ -27,57 +28,81 @@ from telegram.ext import (
     filters,
 )
 
-# Hardcoded Credentials
-BOT_TOKEN = "8883575419:AAHphY9cdSpDed0Uz9YVNyPe2jp4FUvmBl4"
+# Bot Credentials
+BOT_TOKEN = "8759131018:AAH57_DA9HGJZYe0uDRX2GBD1Qw6Sa6_6w8"
 ADMIN_ID = 8846085944
 
-# 1. Automatic Module Installer Function (Enhanced)
+# Smart Package Name Mapper (Imports vs Pip Names)
+MODULE_MAPPER = {
+    "user_agent": "fake-useragent",
+    "bs4": "beautifulsoup4",
+    "cv2": "opencv-python",
+    "PIL": "Pillow",
+    "telegram": "python-telegram-bot",
+    "sklearn": "scikit-learn",
+    "yaml": "pyyaml",
+    "crypto": "pycryptodome",
+    "Crypto": "pycryptodome",
+    "fitz": "PyMuPDF",
+    "dns": "dnspython",
+    "docx": "python-docx",
+    "pptx": "python-pptx",
+    "serial": "pyserial",
+    "dateutil": "python-dateutil",
+    "jwt": "PyJWT",
+    "websocket": "websocket-client",
+    "socketio": "python-socketio",
+    "requests": "requests",
+    "httpx": "httpx",
+    "aiohttp": "aiohttp",
+    "telethon": "telethon",
+    "pyrogram": "pyrogram"
+}
+
+# 1. Universal Automatic Module Installer Function
 def auto_install_requirements(script_path):
     try:
-        with open(script_path, "r", encoding="utf-8") as f:
-            tree = ast.parse(f.read(), filename=script_path)
+        with open(script_path, "r", encoding="utf-8", errors="ignore") as f:
+            code_content = f.read()
 
-        modules_to_install = set()
+        tree = ast.parse(code_content, filename=script_path)
+        imports = set()
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
-                for n in node.names:
-                    mod_name = n.name.split(".")[0]
-                    modules_to_install.add(mod_name)
+                for alias in node.names:
+                    imports.add(alias.name.split(".")[0])
             elif isinstance(node, ast.ImportFrom):
                 if node.module:
-                    mod_name = node.module.split(".")[0]
-                    modules_to_install.add(mod_name)
+                    imports.add(node.module.split(".")[0])
 
-        # Standard libraries list to avoid unnecessary pip installs
-        stdlib = {
-            "os", "sys", "math", "json", "re", "ast", "subprocess", "time", 
-            "datetime", "random", "threading", "io", "socket", "urllib", 
-            "http", "collections", "itertools", "functools", "pathlib", 
-            "shutil", "logging", "asyncio", "sqlite3", "hashlib", "base64",
-            "typing", "struct", "string", "traceback", "urllib.request"
+        stdlib = set(sys.stdlib_module_names) if hasattr(sys, "stdlib_module_names") else {
+            "os", "sys", "math", "json", "re", "ast", "subprocess", "time", "datetime",
+            "random", "threading", "io", "socket", "urllib", "http", "collections",
+            "itertools", "functools", "pathlib", "shutil", "logging", "asyncio", 
+            "sqlite3", "hashlib", "base64", "typing", "struct", "string", "traceback"
         }
 
-        for module in modules_to_install:
-            if module not in stdlib:
-                try:
-                    __import__(module)
-                except ImportError:
-                    print(f"Auto-installing missing module: {module}")
-                    # Mapping for modules whose pip name differs from import name
-                    pip_name = module
-                    if module == "bs4":
-                        pip_name = "beautifulsoup4"
-                    elif module == "cv2":
-                        pip_name = "opencv-python"
-                    elif module == "telegram":
-                        pip_name = "python-telegram-bot"
-                    elif module == "PIL":
-                        pip_name = "Pillow"
-                    
-                    subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name])
+        for mod in imports:
+            if mod not in stdlib:
+                if importlib.util.find_spec(mod) is None:
+                    package_name = MODULE_MAPPER.get(mod, mod)
+                    print(f"📦 Auto-installing missing module: {mod} (Pip: {package_name})")
+                    try:
+                        subprocess.check_call(
+                            [sys.executable, "-m", "pip", "install", "--upgrade", package_name],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL
+                        )
+                    except subprocess.CalledProcessError:
+                        if package_name != mod:
+                            subprocess.call(
+                                [sys.executable, "-m", "pip", "install", "--upgrade", mod],
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL
+                            )
     except Exception as e:
-        print(f"Auto-install error: {e}")
+        print(f"⚠️ Auto-install error: {e}")
 
 BOT_START_TIME = time.time()
 DATA_FILE = Path("bot_data.json")
@@ -91,8 +116,6 @@ logging.basicConfig(
 logger = logging.getLogger("AdvancedLiveRunner")
 
 ACTIVE_RUNNERS = {}
-
-# Fast ANSI Stripper
 ANSI_REGEX = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 
 def remove_ansi_codes(text: str) -> str:
@@ -305,7 +328,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     workspace.mkdir(exist_ok=True)
     target_path = workspace / clean_name
 
-    msg = await update.message.reply_text("📥 **Downloading file to isolated workspace...**", parse_mode="Markdown")
+    msg = await update.message.reply_text("📥 **Downloading file to workspace...**", parse_mode="Markdown")
     tg_file = await doc.get_file()
     await tg_file.download_to_drive(target_path)
 
@@ -316,13 +339,11 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         os.remove(target_path)
         py_files = list(workspace.glob("*.py"))
         if not py_files:
-            await msg.edit_text("❌ **Error:** No Python (`.py`) file found in ZIP archive.", parse_mode="Markdown")
+            await msg.edit_text("❌ **Error:** No Python (`.py`) file found in ZIP.", parse_mode="Markdown")
             return
         target_path = py_files[0]
 
-    await msg.edit_text("🔍 **Checking and installing missing requirements...**", parse_mode="Markdown")
-    
-    # Auto-install missing requirements automatically before execution
+    await msg.edit_text("🔍 **Checking and auto-installing requirements...**", parse_mode="Markdown")
     auto_install_requirements(target_path)
 
     await msg.delete()
@@ -398,7 +419,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "💻 Custom Shell Command":
-        await update.message.reply_text("💻 Send any terminal/shell command (e.g., `pip list`, `dir`, `python --version`).", parse_mode="Markdown")
+        await update.message.reply_text("💻 Send any terminal/shell command (e.g., `pip list`, `python --version`).", parse_mode="Markdown")
         return
 
     if text == "🖥 System Stats":
@@ -412,7 +433,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"━━━━━━━━━━━━━━━━━━━━━━\n"
             f"⚙️ **CPU Load:** `{cpu}%`\n"
             f"🧠 **RAM Usage:** `{ram.percent}%` ({round(ram.used/(1024**3), 2)}GB / {round(ram.total/(1024**3), 2)}GB)\n"
-            f"💾 **Disk Storage:** `{disk.percent}%` ({round(disk.used/(1024**3), 2)}GB free)\n"
+            f"💾 **Disk Storage:** `{disk.percent}%`\n"
             f"⏱ **Bot Uptime:** `{uptime}`\n"
             f"🔥 **Active Tasks:** `{len(ACTIVE_RUNNERS)}`\n"
             f"━━━━━━━━━━━━━━━━━━━━━━"
@@ -436,7 +457,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👥 **Approved Users:** `{users_cnt}`\n"
             f"⏳ **Pending Requests:** `{pending_cnt}`\n"
             f"🚫 **Banned Users:** `{banned_cnt}`\n"
-            f"⚡ **Active Live Runners:** `{len(ACTIVE_RUNNERS)}`\n"
             f"━━━━━━━━━━━━━━━━━━━━━━",
             parse_mode="Markdown",
             reply_markup=kb
@@ -479,7 +499,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "adm_pending":
         pending = db.get("pending", [])
         if not pending:
-            await query.edit_message_text("⏳ **No pending authorization requests.**", parse_mode="Markdown")
+            await query.edit_message_text("⏳ **No pending requests.**", parse_mode="Markdown")
             return
         
         keyboard = []
@@ -503,9 +523,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if runner.proc and runner.proc.returncode is None:
                 runner.proc.kill()
             del ACTIVE_RUNNERS[cid]
-            await query.edit_message_text(f"🛑 **Process killed by user command.**", parse_mode="Markdown")
-        else:
-            await query.edit_message_text("ℹ️ Process is no longer active.")
+            await query.edit_message_text("🛑 **Process killed.**", parse_mode="Markdown")
 
     elif data.startswith("proc_ref_"):
         cid = int(data.split("_")[2])
@@ -580,7 +598,7 @@ def main():
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-    print("🚀 Advanced Runner Bot initialized & polling...")
+    print("🚀 Universal Runner Bot initialized & polling...")
     app.run_polling()
 
 if __name__ == "__main__":
