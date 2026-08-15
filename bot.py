@@ -28,6 +28,13 @@ from telegram.ext import (
     filters,
 )
 
+# Force pre-install common modules to prevent any ModuleNotFoundError
+for pkg in ["requests", "fake-useragent", "beautifulsoup4", "opencv-python", "Pillow"]:
+    try:
+        __import__(pkg.split("-")[0])
+    except ImportError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
+
 # Bot Credentials
 BOT_TOKEN = "8759131018:AAH57_DA9HGJZYe0uDRX2GBD1Qw6Sa6_6w8"
 ADMIN_ID = 8846085944
@@ -59,7 +66,7 @@ MODULE_MAPPER = {
     "pyrogram": "pyrogram"
 }
 
-# 1. Universal Automatic Module Installer Function
+# Universal Automatic Module Installer Function
 def auto_install_requirements(script_path):
     try:
         with open(script_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -532,7 +539,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             display_text = runner.logs[-3500:].strip() or "No logs available yet..."
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🛑 Kill Process", callback_data=f"proc_kill_{cid}"),
-                 InlineKeyboardButton("🔄 Refresh Output", callback_data=f"proc_ref_{cid}")],
+                 InlineKeyboardButton("🔄 Refresh Output", callback_data=f"proc_ref_{cid})")],
                 [InlineKeyboardButton("📋 Download Logs", callback_data=f"proc_log_{cid}")]
             ])
             try:
@@ -563,7 +570,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         filepath = WORKSPACES_DIR / str(user_id) / fname
         if filepath.exists():
             filepath.unlink()
-            await query.edit_message_text(f"🗑 **File Deleted:** `{fname}`", parse_mode="Markdown")
+            await query.edit_main_text(f"🗑 **File Deleted:** `{fname}`", parse_mode="Markdown")
 
     elif data.startswith("approve_"):
         uid = int(data.split("_")[1])
