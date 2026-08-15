@@ -1,42 +1,4 @@
 import ast
-import subprocess
-import sys
-
-# 1. Automatic Module Installer Function
-def auto_install_requirements(script_path):
-    try:
-        with open(script_path, "r", encoding="utf-8") as f:
-            tree = ast.parse(f.read(), filename=script_path)
-
-        modules_to_install = set()
-
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                for n in node.names:
-                    mod_name = n.name.split(".")[0]
-                    modules_to_install.add(mod_name)
-            elif isinstance(node, ast.ImportFrom):
-                if node.module:
-                    mod_name = node.module.split(".")[0]
-                    modules_to_install.add(mod_name)
-
-        stdlib = {
-            "os", "sys", "math", "json", "re", "ast", "subprocess", "time", 
-            "datetime", "random", "threading", "io", "socket", "urllib", 
-            "http", "collections", "itertools", "functools", "pathlib", 
-            "shutil", "logging", "asyncio"
-        }
-
-        for module in modules_to_install:
-            if module not in stdlib:
-                try:
-                    __import__(module)
-                except ImportError:
-                    print(f"Auto-installing missing module: {module}")
-                    subprocess.check_call([sys.executable, "-m", "pip", "install", module])
-    except Exception as e:
-        print(f"Auto-install error: {e}")
-
 import asyncio
 import json
 import logging
@@ -45,6 +7,7 @@ import re
 import sys
 import time
 import zipfile
+import subprocess
 from pathlib import Path
 
 import psutil
@@ -64,9 +27,57 @@ from telegram.ext import (
     filters,
 )
 
-# Hardcoded Credentials as Requested
+# Hardcoded Credentials
 BOT_TOKEN = "8883575419:AAHphY9cdSpDed0Uz9YVNyPe2jp4FUvmBl4"
 ADMIN_ID = 8846085944
+
+# 1. Automatic Module Installer Function (Enhanced)
+def auto_install_requirements(script_path):
+    try:
+        with open(script_path, "r", encoding="utf-8") as f:
+            tree = ast.parse(f.read(), filename=script_path)
+
+        modules_to_install = set()
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for n in node.names:
+                    mod_name = n.name.split(".")[0]
+                    modules_to_install.add(mod_name)
+            elif isinstance(node, ast.ImportFrom):
+                if node.module:
+                    mod_name = node.module.split(".")[0]
+                    modules_to_install.add(mod_name)
+
+        # Standard libraries list to avoid unnecessary pip installs
+        stdlib = {
+            "os", "sys", "math", "json", "re", "ast", "subprocess", "time", 
+            "datetime", "random", "threading", "io", "socket", "urllib", 
+            "http", "collections", "itertools", "functools", "pathlib", 
+            "shutil", "logging", "asyncio", "sqlite3", "hashlib", "base64",
+            "typing", "struct", "string", "traceback", "urllib.request"
+        }
+
+        for module in modules_to_install:
+            if module not in stdlib:
+                try:
+                    __import__(module)
+                except ImportError:
+                    print(f"Auto-installing missing module: {module}")
+                    # Mapping for modules whose pip name differs from import name
+                    pip_name = module
+                    if module == "bs4":
+                        pip_name = "beautifulsoup4"
+                    elif module == "cv2":
+                        pip_name = "opencv-python"
+                    elif module == "telegram":
+                        pip_name = "python-telegram-bot"
+                    elif module == "PIL":
+                        pip_name = "Pillow"
+                    
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name])
+    except Exception as e:
+        print(f"Auto-install error: {e}")
 
 BOT_START_TIME = time.time()
 DATA_FILE = Path("bot_data.json")
@@ -311,6 +322,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await msg.edit_text("🔍 **Checking and installing missing requirements...**", parse_mode="Markdown")
     
+    # Auto-install missing requirements automatically before execution
     auto_install_requirements(target_path)
 
     await msg.delete()
