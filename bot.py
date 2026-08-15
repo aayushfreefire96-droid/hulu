@@ -28,7 +28,7 @@ from telegram.ext import (
     filters,
 )
 
-# Force pre-install common modules to prevent any ModuleNotFoundError
+# Force pre-install common modules globally
 for pkg in ["requests", "fake-useragent", "beautifulsoup4", "opencv-python", "Pillow"]:
     try:
         __import__(pkg.split("-")[0])
@@ -36,8 +36,8 @@ for pkg in ["requests", "fake-useragent", "beautifulsoup4", "opencv-python", "Pi
         subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
 
 # Bot Credentials
-BOT_TOKEN = "8759131018:AAH57_DA9HGJZYe0uDRX2GBD1Qw6Sa6_6w8"
-ADMIN_ID = 8846085944
+BOT_TOKEN = "8510238632:AAH2lV5dHWFjRR92-rihTkRaqipSg9v-i70"
+ADMIN_ID = 8783170404
 
 # Smart Package Name Mapper (Imports vs Pip Names)
 MODULE_MAPPER = {
@@ -66,7 +66,6 @@ MODULE_MAPPER = {
     "pyrogram": "pyrogram"
 }
 
-# Universal Automatic Module Installer Function
 def auto_install_requirements(script_path):
     try:
         with open(script_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -94,7 +93,6 @@ def auto_install_requirements(script_path):
             if mod not in stdlib:
                 if importlib.util.find_spec(mod) is None:
                     package_name = MODULE_MAPPER.get(mod, mod)
-                    print(f"📦 Auto-installing missing module: {mod} (Pip: {package_name})")
                     try:
                         subprocess.check_call(
                             [sys.executable, "-m", "pip", "install", "--upgrade", package_name],
@@ -171,6 +169,15 @@ class LiveRunner:
         self.status = "Initializing..."
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", "requests", "fake-useragent", "beautifulsoup4", "opencv-python", "Pillow"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+        except Exception:
+            pass
+
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
         env["PYTHONIOENCODING"] = "utf-8"
@@ -539,7 +546,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             display_text = runner.logs[-3500:].strip() or "No logs available yet..."
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🛑 Kill Process", callback_data=f"proc_kill_{cid}"),
-                 InlineKeyboardButton("🔄 Refresh Output", callback_data=f"proc_ref_{cid})")],
+                 InlineKeyboardButton("🔄 Refresh Output", callback_data=f"proc_ref_{cid}")],
                 [InlineKeyboardButton("📋 Download Logs", callback_data=f"proc_log_{cid}")]
             ])
             try:
@@ -570,7 +577,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         filepath = WORKSPACES_DIR / str(user_id) / fname
         if filepath.exists():
             filepath.unlink()
-            await query.edit_main_text(f"🗑 **File Deleted:** `{fname}`", parse_mode="Markdown")
+            await query.edit_message_text(f"🗑 **File Deleted:** `{fname}`", parse_mode="Markdown")
 
     elif data.startswith("approve_"):
         uid = int(data.split("_")[1])
