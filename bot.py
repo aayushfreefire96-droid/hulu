@@ -48,7 +48,6 @@ import zipfile
 from pathlib import Path
 
 import psutil
-from dotenv import load_dotenv
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -65,11 +64,9 @@ from telegram.ext import (
     filters,
 )
 
-# Load Local Environment
-load_dotenv()
-
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+# Hardcoded Credentials as Requested
+BOT_TOKEN = "8883575419:AAHphY9cdSpDed0Uz9YVNyPe2jp4FUvmBl4"
+ADMIN_ID = 8846085944
 
 BOT_START_TIME = time.time()
 DATA_FILE = Path("bot_data.json")
@@ -138,6 +135,7 @@ class LiveRunner:
         env["PYTHONIOENCODING"] = "utf-8"
         env["PYTHONUTF8"] = "1"
         env["PYTHONPATH"] = os.path.pathsep.join(sys.path)
+        env["TERM"] = "xterm-256color"
 
         self.proc = await asyncio.create_subprocess_exec(
             sys.executable, "-u", str(self.script_path),
@@ -220,8 +218,11 @@ class LiveRunner:
 
     async def send_input(self, text: str):
         if self.proc and self.proc.returncode is None:
-            self.proc.stdin.write((text + "\n").encode("utf-8"))
-            await self.proc.stdin.drain()
+            try:
+                self.proc.stdin.write((text + "\n").encode("utf-8"))
+                await self.proc.stdin.drain()
+            except Exception:
+                pass
 
 def get_main_keyboard(user_id: int):
     kb = [
@@ -310,7 +311,6 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await msg.edit_text("🔍 **Checking and installing missing requirements...**", parse_mode="Markdown")
     
-    # Auto-install modules before execution
     auto_install_requirements(target_path)
 
     await msg.delete()
@@ -439,6 +439,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             env = os.environ.copy()
             env["PYTHONUNBUFFERED"] = "1"
             env["PYTHONPATH"] = os.path.pathsep.join(sys.path)
+            env["TERM"] = "xterm-256color"
             cmd_text = text.replace("python ", f'"{sys.executable}" ') if text.startswith("python ") else text
             proc = await asyncio.create_subprocess_shell(
                 cmd_text,
