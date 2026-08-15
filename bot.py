@@ -98,6 +98,7 @@ class LiveRunner:
         env["PYTHONUNBUFFERED"] = "1"
         env["PYTHONIOENCODING"] = "utf-8"
         env["PYTHONUTF8"] = "1"
+        env["PYTHONPATH"] = os.path.pathsep.join(sys.path)
 
         self.proc = await asyncio.create_subprocess_exec(
             sys.executable, "-u", str(self.script_path),
@@ -132,7 +133,6 @@ class LiveRunner:
         last_update = 0
         try:
             while True:
-                # Optimized 1024-byte chunk size for faster I/O processing
                 chunk = await self.proc.stdout.read(1024)
                 if not chunk:
                     break
@@ -141,7 +141,6 @@ class LiveRunner:
                 self.logs += remove_ansi_codes(decoded_text)
 
                 now = asyncio.get_event_loop().time()
-                # Rate-limit updates to Telegram API to prevent flood limits
                 if now - last_update > 1.2:
                     last_update = now
                     display_text = self.logs[-3500:].strip() or "Process active (waiting for I/O output)..."
@@ -395,8 +394,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             env = os.environ.copy()
             env["PYTHONUNBUFFERED"] = "1"
+            env["PYTHONPATH"] = os.path.pathsep.join(sys.path)
+            cmd_text = text.replace("python ", f'"{sys.executable}" ') if text.startswith("python ") else text
             proc = await asyncio.create_subprocess_shell(
-                text,
+                cmd_text,
                 cwd=str(workspace),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
